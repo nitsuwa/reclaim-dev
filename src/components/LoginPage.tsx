@@ -8,72 +8,68 @@ import { Eye, EyeOff, AlertCircle, ArrowLeft } from 'lucide-react';
 import { PLVLogo } from './PLVLogo';
 import { toast } from 'sonner@2.0.3';
 import { Alert, AlertDescription } from './ui/alert';
+import { auth, db } from '../db/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 export const LoginPage = () => {
   const { setCurrentUser, setCurrentPage } = useApp();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [loginAttempts, setLoginAttempts] = useState(0);
-  const [isLocked, setIsLocked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (isLocked) {
-      setError('Account is locked due to too many failed attempts. Please reset your password.');
-      return;
-    }
-
-    // Validate inputs
-    if (!username.trim() || !password.trim()) {
+    if (!email.trim() || !password.trim()) {
       setError('Please fill in all fields');
       return;
     }
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      // Mock validation - in real app, validate against backend
-      const validCredentials = password.length >= 6; // Simple mock validation
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-      if (!validCredentials) {
-        const newAttempts = loginAttempts + 1;
-        setLoginAttempts(newAttempts);
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const appUser = {
+          id: user.uid,
+          fullName: userData.fullName,
+          studentId: userData.studentId,
+          contactNumber: userData.contactNumber,
+          email: userData.email,
+          role: userData.role || 'user',
+        };
         
-        if (newAttempts >= 3) {
-          setIsLocked(true);
-          setError('Account locked due to too many failed attempts. Please reset your password.');
+        toast.success('Login successful!', {
+          description: `Welcome back, ${appUser.fullName}!`
+        });
+
+        setCurrentUser(appUser);
+        if (appUser.role === 'admin') {
+          setCurrentPage('admin-dashboard');
         } else {
-          setError(`Invalid credentials. ${3 - newAttempts} attempts remaining.`);
+          setCurrentPage('board');
         }
-        setIsLoading(false);
-        return;
+      } else {
+        setError('User data not found.');
       }
 
-      // Successful login
-      const mockUser = {
-        id: '1',
-        fullName: isAdmin ? 'Admin Guard' : 'Juan Dela Cruz',
-        studentId: isAdmin ? 'GUARD001' : '2021-00123-VL-0',
-        contactNumber: '09123456789',
-        email: username,
-        role: isAdmin ? 'admin' as const : 'finder' as const
-      };
-      
-      toast.success('Login successful!', {
-        description: `Welcome back, ${mockUser.fullName}!`
-      });
-
-      setCurrentUser(mockUser);
-      setCurrentPage(isAdmin ? 'admin' : 'board');
+    } catch (error: any) {
+      setError('Invalid email or password. Please try again.');
+      toast.error('Login Failed', {
+        description: 'Invalid email or password. Please try again.'
+      })
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -112,19 +108,19 @@ export const LoginPage = () => {
             )}
 
             <div className="space-y-3">
-              <Label htmlFor="username">Email / Student ID</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                type="text"
-                placeholder="Enter your email or student ID"
-                value={username}
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
                 onChange={(e) => {
-                  setUsername(e.target.value);
+                  setEmail(e.target.value);
                   setError('');
                 }}
                 required
-                disabled={isLocked || isLoading}
-                className="h-12 border-2 focus:border-accent transition-all"
+                disabled={isLoading}
+                className="h-12 border-2 focus:border-accent transition-all shadow-md"
               />
             </div>
 
@@ -141,8 +137,8 @@ export const LoginPage = () => {
                     setError('');
                   }}
                   required
-                  disabled={isLocked || isLoading}
-                  className="h-12 pr-10 border-2 focus:border-accent transition-all"
+                  disabled={isLoading}
+                  className="h-12 pr-10 border-2 focus:border-accent transition-all shadow-md"
                 />
                 <button
                   type="button"
@@ -155,24 +151,10 @@ export const LoginPage = () => {
               </div>
             </div>
 
-            <div className="flex items-center space-x-2 pt-1">
-              <input
-                type="checkbox"
-                id="admin"
-                checked={isAdmin}
-                onChange={(e) => setIsAdmin(e.target.checked)}
-                className="w-4 h-4 rounded border-2 border-border text-accent focus:ring-2 focus:ring-accent cursor-pointer"
-                disabled={isLocked || isLoading}
-              />
-              <Label htmlFor="admin" className="cursor-pointer">
-                Login as Guard/Admin
-              </Label>
-            </div>
-
             <Button 
               type="submit" 
               className="w-full h-12 bg-accent text-accent-foreground hover:bg-accent/90 shadow-md transition-all hover:shadow-lg mt-6"
-              disabled={isLocked || isLoading}
+              disabled={isLoading}
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>

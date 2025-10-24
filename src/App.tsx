@@ -30,7 +30,12 @@ function AppContent() {
     }
 
     if (currentUser.role === "admin") {
-      return <AdminDashboard />;
+      switch (currentPage) {
+        case "admin-dashboard":
+          return <AdminDashboard />;
+        default:
+          return <AdminDashboard />;
+      }
     }
 
     switch (currentPage) {
