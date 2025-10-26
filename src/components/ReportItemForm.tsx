@@ -5,22 +5,25 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { useApp } from '../context/AppContext';
-import { ArrowLeft, Upload, CheckCircle2, CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Upload, CalendarIcon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
-import { format } from 'date-fns@4.1.0';
+import { format } from 'date-fns';
 import { cn } from './ui/utils';
+import { db } from '../db/firebase';
+import { addDoc, collection } from 'firebase/firestore';
+import { toast } from 'sonner';
 
 export const ReportItemForm = () => {
   const { setCurrentPage, items, setItems, currentUser, addActivityLog } = useApp();
-  const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     itemType: '',
     otherItemTypeDetails: '',
     location: '',
     dateFound: '',
     timeFound: '',
+    description: '',
     photoUrl: '',
     securityQuestion1: '',
     securityAnswer1: '',
@@ -31,72 +34,57 @@ export const ReportItemForm = () => {
   });
   const [selectedDate, setSelectedDate] = useState<Date>();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.itemType || !formData.location || !selectedDate || !formData.timeFound || !formData.securityQuestion1 || !formData.securityAnswer1) {
+      toast.error('Please fill out all required fields.');
+      return;
+    }
     
     const newItem = {
-      id: Date.now().toString(),
       itemType: formData.itemType,
       ...(formData.itemType === 'Other' && formData.otherItemTypeDetails && { otherItemTypeDetails: formData.otherItemTypeDetails }),
       location: formData.location,
       dateFound: formData.dateFound,
       timeFound: formData.timeFound,
+      description: formData.description,
       photoUrl: formData.photoUrl || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400',
       securityQuestions: [
         { question: formData.securityQuestion1, answer: formData.securityAnswer1 },
         formData.securityQuestion2 && { question: formData.securityQuestion2, answer: formData.securityAnswer2 },
         formData.securityQuestion3 && { question: formData.securityQuestion3, answer: formData.securityAnswer3 }
       ].filter(Boolean) as { question: string; answer: string }[],
-      reportedBy: currentUser?.id || 'unknown',
+      reportedBy: {
+        id: currentUser?.id || 'unknown',
+        name: currentUser?.fullName || 'Anonymous'
+      },
       status: 'pending' as const,
       reportedAt: new Date().toISOString()
     };
 
-    setItems([...items, newItem]);
-    
-    // Add activity log
-    addActivityLog({
-      userId: currentUser?.id || 'unknown',
-      userName: currentUser?.fullName || 'Unknown User',
-      action: 'item_reported',
-      itemId: newItem.id,
-      itemType: newItem.itemType,
-      details: `Reported found item: ${newItem.itemType} at ${newItem.location}`
-    });
-    
-    setSubmitted(true);
-  };
+    try {
+      const docRef = await addDoc(collection(db, "foundItems"), newItem);
+      
+      setItems([...items, { ...newItem, id: docRef.id }]);
 
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-xl">
-          <CardContent className="pt-6 text-center space-y-4">
-            <div className="flex justify-center">
-              <div className="bg-accent rounded-full p-4 shadow-lg">
-                <CheckCircle2 className="h-12 w-12 text-accent-foreground" />
-              </div>
-            </div>
-            <h2>Report Submitted Successfully!</h2>
-            <p className="text-muted-foreground">
-              Thank you for reporting the found item. Please bring the item to the Guard Post for verification.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Your report will be reviewed by the admin and will appear on the Lost & Found Board once verified.
-            </p>
-            <div className="flex gap-3">
-              <Button onClick={() => setCurrentPage('profile')} variant="outline" className="flex-1">
-                View Profile
-              </Button>
-              <Button onClick={() => setCurrentPage('board')} className="flex-1">
-                Return to Board
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+      addActivityLog({
+        userId: currentUser?.id || 'unknown',
+        userName: currentUser?.fullName || 'Unknown User',
+        action: 'item_reported',
+        itemId: docRef.id,
+        itemType: newItem.itemType,
+        details: `Reported found item: ${newItem.itemType} at ${newItem.location}`
+      });
+      
+      toast.success('Report submitted successfully!');
+      setCurrentPage('board');
+
+    } catch (error) {
+      console.error("Error adding document: ", error);
+      toast.error('Failed to submit report. Please try again.');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -121,7 +109,7 @@ export const ReportItemForm = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="itemType">Item Type *</Label>
-                <Select value={formData.itemType} onValueChange={(value) => setFormData({...formData, itemType: value})}>
+                <Select required value={formData.itemType} onValueChange={(value) => setFormData({...formData, itemType: value})}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select item type" />
                   </SelectTrigger>
@@ -156,7 +144,7 @@ export const ReportItemForm = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="location">Location Found *</Label>
-                <Select value={formData.location} onValueChange={(value) => setFormData({...formData, location: value})}>
+                <Select required value={formData.location} onValueChange={(value) => setFormData({...formData, location: value})}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
@@ -217,6 +205,16 @@ export const ReportItemForm = () => {
                     required
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Provide any additional details about the item or where it was found."
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                />
               </div>
 
               <div className="space-y-2">
