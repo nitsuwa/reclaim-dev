@@ -8,12 +8,14 @@ import { Eye, EyeOff, AlertCircle, ArrowLeft } from 'lucide-react';
 import { PLVLogo } from './PLVLogo';
 import { toast } from 'sonner@2.0.3';
 import { Alert, AlertDescription } from './ui/alert';
+import { auth, db } from '../firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 export const LoginPage = () => {
   const { setCurrentUser, setCurrentPage } = useApp();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loginAttempts, setLoginAttempts] = useState(0);
@@ -37,43 +39,45 @@ export const LoginPage = () => {
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      // Mock validation - in real app, validate against backend
-      const validCredentials = password.length >= 6; // Simple mock validation
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, username, password);
+      const user = userCredential.user;
 
-      if (!validCredentials) {
-        const newAttempts = loginAttempts + 1;
-        setLoginAttempts(newAttempts);
-        
-        if (newAttempts >= 3) {
-          setIsLocked(true);
-          setError('Account locked due to too many failed attempts. Please reset your password.');
-        } else {
-          setError(`Invalid credentials. ${3 - newAttempts} attempts remaining.`);
-        }
-        setIsLoading(false);
-        return;
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const appUser = {
+          id: user.uid,
+          fullName: userData.fullName,
+          studentId: userData.studentId,
+          contactNumber: userData.contactNumber,
+          email: userData.email,
+          role: userData.role
+        };
+
+        toast.success('Login successful!', {
+          description: `Welcome back, ${appUser.fullName}!`
+        });
+
+        setCurrentUser(appUser);
+        setCurrentPage(appUser.role === 'admin' ? 'admin' : 'board');
+      } else {
+        setError('User data not found.');
       }
+    } catch (error: any) {
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
 
-      // Successful login
-      const mockUser = {
-        id: '1',
-        fullName: isAdmin ? 'Admin Guard' : 'Juan Dela Cruz',
-        studentId: isAdmin ? 'GUARD001' : '2021-00123-VL-0',
-        contactNumber: '09123456789',
-        email: username,
-        role: isAdmin ? 'admin' as const : 'finder' as const
-      };
-      
-      toast.success('Login successful!', {
-        description: `Welcome back, ${mockUser.fullName}!`
-      });
-
-      setCurrentUser(mockUser);
-      setCurrentPage(isAdmin ? 'admin' : 'board');
+      if (newAttempts >= 3) {
+        setIsLocked(true);
+        setError('Account locked due to too many failed attempts. Please reset your password.');
+      } else {
+        setError(`Invalid credentials. ${3 - newAttempts} attempts remaining.`);
+      }
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
