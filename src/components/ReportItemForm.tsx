@@ -11,9 +11,11 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns@4.1.0';
 import { cn } from './ui/utils';
+import { db } from '../firebase';
+import { collection, addDoc } from 'firebase/firestore';
 
 export const ReportItemForm = () => {
-  const { setCurrentPage, items, setItems, currentUser, addActivityLog } = useApp();
+  const { setCurrentPage, currentUser, addActivityLog } = useApp();
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     itemType: '',
@@ -31,11 +33,10 @@ export const ReportItemForm = () => {
   });
   const [selectedDate, setSelectedDate] = useState<Date>();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const newItem = {
-      id: Date.now().toString(),
       itemType: formData.itemType,
       ...(formData.itemType === 'Other' && formData.otherItemTypeDetails && { otherItemTypeDetails: formData.otherItemTypeDetails }),
       location: formData.location,
@@ -52,19 +53,20 @@ export const ReportItemForm = () => {
       reportedAt: new Date().toISOString()
     };
 
-    setItems([...items, newItem]);
-    
-    // Add activity log
-    addActivityLog({
-      userId: currentUser?.id || 'unknown',
-      userName: currentUser?.fullName || 'Unknown User',
-      action: 'item_reported',
-      itemId: newItem.id,
-      itemType: newItem.itemType,
-      details: `Reported found item: ${newItem.itemType} at ${newItem.location}`
-    });
-    
-    setSubmitted(true);
+    try {
+      const docRef = await addDoc(collection(db, 'items'), newItem);
+      await addActivityLog({
+        userId: currentUser?.id || 'unknown',
+        userName: currentUser?.fullName || 'Unknown User',
+        action: 'item_reported',
+        itemId: docRef.id,
+        itemType: newItem.itemType,
+        details: `Reported found item: ${newItem.itemType} at ${newItem.location}`
+      });
+      setSubmitted(true);
+    } catch (error) {
+      console.error('Error adding document: ', error);
+    }
   };
 
   if (submitted) {

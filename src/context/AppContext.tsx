@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { User, LostItem, Claim, ActivityLog } from '../types';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, onSnapshot, query } from 'firebase/firestore';
 
 interface AppContextType {
   currentUser: User | null;
@@ -16,7 +16,7 @@ interface AppContextType {
   selectedItem: LostItem | null;
   setSelectedItem: (item: LostItem | null) => void;
   activityLogs: ActivityLog[];
-  addActivityLog: (log: Omit<ActivityLog, 'id' | 'timestamp'>) => void;
+  addActivityLog: (log: Omit<ActivityLog, 'id' | 'timestamp'>) => Promise<void>;
   logout: () => void;
 }
 
@@ -67,13 +67,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  const addActivityLog = (log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
+  useEffect(() => {
+    const q = query(collection(db, 'items'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const itemsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LostItem));
+      setItems(itemsData);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const addActivityLog = async (log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
     const newLog: ActivityLog = {
       ...log,
       id: Date.now().toString(),
       timestamp: new Date().toISOString()
     };
-    setActivityLogs(prev => [newLog, ...prev]);
+    try {
+      await addDoc(collection(db, 'activity'), newLog);
+      setActivityLogs(prev => [newLog, ...prev]);
+    } catch (error) {
+      console.error('Error adding activity log: ', error);
+    }
   };
 
   const logout = () => {
