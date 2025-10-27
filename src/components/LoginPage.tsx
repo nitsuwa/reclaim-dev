@@ -124,7 +124,7 @@ export const LoginPage = () => {
                 }}
                 required
                 disabled={isLocked || isLoading}
-                className="h-12 border-2 focus:border-accent transition-all"
+                className="h-12 border-2 focus:border-accent transition-all shadow-sm"
               />
             </div>
 
@@ -142,7 +142,7 @@ export const LoginPage = () => {
                   }}
                   required
                   disabled={isLocked || isLoading}
-                  className="h-12 pr-10 border-2 focus:border-accent transition-all"
+                  className="h-12 pr-10 border-2 focus:border-accent transition-all shadow-sm"
                 />
                 <button
                   type="button"
@@ -153,20 +153,6 @@ export const LoginPage = () => {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-            </div>
-
-            <div className="flex items-center space-x-2 pt-1">
-              <input
-                type="checkbox"
-                id="admin"
-                checked={isAdmin}
-                onChange={(e) => setIsAdmin(e.target.checked)}
-                className="w-4 h-4 rounded border-2 border-border text-accent focus:ring-2 focus:ring-accent cursor-pointer"
-                disabled={isLocked || isLoading}
-              />
-              <Label htmlFor="admin" className="cursor-pointer">
-                Login as Guard/Admin
-              </Label>
             </div>
 
             <Button 

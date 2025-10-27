@@ -37,8 +37,8 @@ export const RegisterPage = () => {
 
     if (!formData.studentId.trim()) {
       newErrors.studentId = 'Student ID is required';
-    } else if (!/^\d{4}-\d{5}-[A-Z]{2}-\d$/.test(formData.studentId)) {
-      newErrors.studentId = 'Invalid format. Use: 2021-00123-VL-0';
+    } else if (!/^\d{2}-\d{4}$/.test(formData.studentId)) {
+      newErrors.studentId = 'Invalid format. Use: 23-1234';
     }
 
     if (!formData.contactNumber.trim()) {
@@ -227,7 +227,7 @@ export const RegisterPage = () => {
                     setFormData({...formData, fullName: e.target.value});
                     setErrors({...errors, fullName: ''});
                   }}
-                  className={`h-12 border-2 transition-all ${errors.fullName ? 'border-destructive' : 'focus:border-accent'}`}
+                  className={`h-12 border-2 transition-all ${errors.fullName ? 'border-destructive' : 'focus:border-accent'} shadow-sm`}
                   disabled={isLoading}
                 />
                 {errors.fullName && (
@@ -243,13 +243,13 @@ export const RegisterPage = () => {
                 <Input
                   id="studentId"
                   type="text"
-                  placeholder="2021-00123-VL-0"
+                  placeholder="23-1234"
                   value={formData.studentId}
                   onChange={(e) => {
                     setFormData({...formData, studentId: e.target.value});
                     setErrors({...errors, studentId: ''});
                   }}
-                  className={`h-12 border-2 transition-all ${errors.studentId ? 'border-destructive' : 'focus:border-accent'}`}
+                  className={`h-12 border-2 transition-all ${errors.studentId ? 'border-destructive' : 'focus:border-accent'} shadow-sm`}
                   disabled={isLoading}
                 />
                 {errors.studentId && (
@@ -271,7 +271,7 @@ export const RegisterPage = () => {
                     setFormData({...formData, contactNumber: e.target.value});
                     setErrors({...errors, contactNumber: ''});
                   }}
-                  className={`h-12 border-2 transition-all ${errors.contactNumber ? 'border-destructive' : 'focus:border-accent'}`}
+                  className={`h-12 border-2 transition-all ${errors.contactNumber ? 'border-destructive' : 'focus:border-accent'} shadow-sm`}
                   disabled={isLoading}
                 />
                 {errors.contactNumber && (
@@ -293,7 +293,7 @@ export const RegisterPage = () => {
                     setFormData({...formData, email: e.target.value});
                     setErrors({...errors, email: ''});
                   }}
-                  className={`h-12 border-2 transition-all ${errors.email ? 'border-destructive' : 'focus:border-accent'}`}
+                  className={`h-12 border-2 transition-all ${errors.email ? 'border-destructive' : 'focus:border-accent'} shadow-sm`}
                   disabled={isLoading}
                 />
                 {errors.email && (
@@ -316,7 +316,7 @@ export const RegisterPage = () => {
                       setFormData({...formData, password: e.target.value});
                       setErrors({...errors, password: ''});
                     }}
-                    className={`h-12 pr-10 border-2 transition-all ${errors.password ? 'border-destructive' : 'focus:border-accent'}`}
+                    className={`h-12 pr-10 border-2 transition-all ${errors.password ? 'border-destructive' : 'focus:border-accent'} shadow-sm`}
                     disabled={isLoading}
                   />
                   <button
@@ -362,7 +362,7 @@ export const RegisterPage = () => {
                       setFormData({...formData, confirmPassword: e.target.value});
                       setErrors({...errors, confirmPassword: ''});
                     }}
-                    className={`h-12 pr-10 border-2 transition-all ${errors.confirmPassword ? 'border-destructive' : 'focus:border-accent'}`}
+                    className={`h-12 pr-10 border-2 transition-all ${errors.confirmPassword ? 'border-destructive' : 'focus:border-accent'} shadow-sm`}
                     disabled={isLoading}
                   />
                   <button
