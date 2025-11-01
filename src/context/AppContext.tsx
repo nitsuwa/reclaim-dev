@@ -154,42 +154,63 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateClaim = async (claimId: string, status: 'approved' | 'rejected') => {
-    if (!currentUser || currentUser.role !== 'admin') throw new Error("Unauthorized");
+    if (!currentUser || currentUser.role !== 'admin') {
+      toast.error("Unauthorized action.");
+      return;
+    }
 
     const claim = claims.find(c => c.id === claimId);
-    if (!claim) throw new Error("Claim not found");
+    if (!claim) {
+      toast.error("Claim not found");
+      return;
+    }
 
     const item = items.find(i => i.id === claim.itemId);
-    if (!item) throw new Error("Item not found");
+    if (!item) {
+      toast.error("Associated item not found");
+      return;
+    }
 
-    const batch = writeBatch(db);
-    const claimRef = doc(db, 'claims', claimId);
-    batch.update(claimRef, { status });
+    try {
+      const batch = writeBatch(db);
+      const claimRef = doc(db, 'claims', claimId);
+      batch.update(claimRef, { status });
 
-    if (status === 'approved') {
-      const itemRef = doc(db, 'items', claim.itemId);
-      batch.update(itemRef, { status: 'claimed' });
+      if (status === 'approved') {
+        const itemRef = doc(db, 'items', claim.itemId);
+        batch.update(itemRef, { status: 'claimed' });
+      }
+      
+      await batch.commit();
 
-      await addActivityLog({
-        userId: claim.claimantId,
-        userName: claim.claimantName,
-        action: 'item_claimed',
+      // Admin-facing log
+      const adminLogPromise = addActivityLog({
+        userId: currentUser.id,
+        userName: currentUser.fullName,
+        action: status === 'approved' ? 'claim_approved' : 'claim_rejected',
         itemId: item.id,
         itemType: item.itemType,
-        details: `Your claim for ${item.itemType} was approved. (Code: ${claim.claimCode})`,
+        details: `${status === 'approved' ? 'Approved' : 'Rejected'} claim from ${claim.claimantName} for ${item.itemType}`,
       });
-    }
-    
-    await batch.commit();
 
-    await addActivitylog({
-      userId: currentUser.id,
-      userName: currentUser.fullName,
-      action: status === 'approved' ? 'claim_approved' : 'claim_rejected',
-      itemId: item.id,
-      itemType: item.itemType,
-      details: `${status === 'approved' ? 'Approved' : 'Rejected'} claim for ${item.itemType} (Code: ${claim.claimCode})`,
-    });
+      // User-facing log
+      const userLogPromise = addActivityLog({
+        userId: claim.claimantId,
+        userName: claim.claimantName,
+        action: status === 'approved' ? 'claim_approved' : 'claim_rejected',
+        itemId: item.id,
+        itemType: item.itemType,
+        details: `Your claim for ${item.itemType} has been ${status}. ${status === 'approved' ? `Your claim code is ${claim.claimCode}.` : ''}`,
+      });
+      
+      await Promise.all([adminLogPromise, userLogPromise]);
+
+      toast.success(`Claim has been ${status}.`);
+
+    } catch (error) {
+      console.error("Failed to update claim status:", error);
+      toast.error("Failed to update claim status. Please try again.");
+    }
   };
 
   const logout = () => {

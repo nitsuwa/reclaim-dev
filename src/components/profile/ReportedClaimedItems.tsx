@@ -17,10 +17,10 @@ export const ReportedClaimedItems = ({ reportedItems, claimedItems }: ReportedCl
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, type: 'item' | 'claim') => {
     const statusMap = {
       pending: { 
-        label: 'Pending Verification', 
+        label: type === 'item' ? 'Pending Verification' : 'Pending Claim', 
         className: 'bg-muted text-muted-foreground',
         icon: Clock
       },
@@ -40,7 +40,7 @@ export const ReportedClaimedItems = ({ reportedItems, claimedItems }: ReportedCl
         icon: FileText
       },
       rejected: { 
-        label: 'Rejected', 
+        label: type === 'item' ? 'Item Rejected' : 'Claim Rejected', 
         className: 'bg-destructive text-destructive-foreground',
         icon: FileText
       }
@@ -169,7 +169,7 @@ export const ReportedClaimedItems = ({ reportedItems, claimedItems }: ReportedCl
                                 {item.otherItemTypeDetails && ` - ${item.otherItemTypeDetails}`}
                               </h4>
                             </div>
-                            {getStatusBadge(item.status)}
+                            {getStatusBadge(item.status, 'item')}
                           </div>
                           
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
@@ -241,7 +241,7 @@ export const ReportedClaimedItems = ({ reportedItems, claimedItems }: ReportedCl
                                 {item.otherItemTypeDetails && ` - ${item.otherItemTypeDetails}`}
                               </h4>
                             </div>
-                            {getStatusBadge(claim.status)}
+                            {getStatusBadge(claim.status, 'claim')}
                           </div>
                           
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
