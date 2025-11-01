@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { User, LostItem, Claim, ActivityLog } from '../types';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, collection, addDoc, onSnapshot, query } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, onSnapshot, query, where, writeBatch } from 'firebase/firestore';
+import { toast } from 'sonner@2.0.3';
 
 interface AppContextType {
   currentUser: User | null;
@@ -17,6 +18,8 @@ interface AppContextType {
   setSelectedItem: (item: LostItem | null) => void;
   activityLogs: ActivityLog[];
   addActivityLog: (log: Omit<ActivityLog, 'id' | 'timestamp'>) => Promise<void>;
+  addClaim: (claimData: { itemId: string, answers: string[] }) => Promise<string>;
+  updateClaim: (claimId: string, status: 'approved' | 'rejected') => Promise<void>;
   logout: () => void;
 }
 
@@ -44,7 +47,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          const appUser = {
+          const appUser: User = {
             id: user.uid,
             fullName: userData.fullName,
             studentId: userData.studentId,
@@ -63,7 +66,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCurrentPage('landing');
       }
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -76,18 +78,118 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!currentUser) {
+      setClaims([]);
+      return;
+    }
+
+    let claimsQuery;
+    if (currentUser.role === 'admin') {
+      claimsQuery = query(collection(db, 'claims'));
+    } else {
+      claimsQuery = query(collection(db, 'claims'), where('claimantId', '==', currentUser.id));
+    }
+
+    const unsubscribe = onSnapshot(claimsQuery, 
+      (querySnapshot) => {
+        const claimsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Claim));
+        setClaims(claimsData);
+      },
+      (error) => {
+        console.error("Error fetching claims:", error);
+        toast.error("Failed to load claims data.");
+      }
+    );
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'activity'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const logsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActivityLog));
+      setActivityLogs(logsData);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const addActivityLog = async (log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
-    const newLog: ActivityLog = {
-      ...log,
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString()
-    };
     try {
-      await addDoc(collection(db, 'activity'), newLog);
-      setActivityLogs(prev => [newLog, ...prev]);
+      await addDoc(collection(db, 'activity'), { ...log, timestamp: new Date().toISOString() });
     } catch (error) {
       console.error('Error adding activity log: ', error);
     }
+  };
+
+  const addClaim = async (claimData: { itemId: string, answers: string[] }) => {
+    if (!currentUser) throw new Error("User not logged in.");
+    const item = items.find(i => i.id === claimData.itemId);
+    if (!item) throw new Error("Could not find item to claim.");
+
+    const newClaim: Omit<Claim, 'id'> = {
+      itemId: claimData.itemId,
+      claimantId: currentUser.id,
+      claimantName: currentUser.fullName,
+      answers: claimData.answers,
+      status: 'pending',
+      claimCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+    };
+
+    try {
+      await addDoc(collection(db, 'claims'), newClaim);
+      await addActivityLog({
+        userId: currentUser.id,
+        userName: currentUser.fullName,
+        action: 'claim_submitted',
+        itemId: item.id,
+        itemType: item.itemType,
+        details: `Submitted a claim for ${item.itemType} (Code: ${newClaim.claimCode})`,
+      });
+      return newClaim.claimCode;
+    } catch (e) {
+      console.error("Failed to submit claim:", e);
+      throw e;
+    }
+  };
+
+  const updateClaim = async (claimId: string, status: 'approved' | 'rejected') => {
+    if (!currentUser || currentUser.role !== 'admin') throw new Error("Unauthorized");
+
+    const claim = claims.find(c => c.id === claimId);
+    if (!claim) throw new Error("Claim not found");
+
+    const item = items.find(i => i.id === claim.itemId);
+    if (!item) throw new Error("Item not found");
+
+    const batch = writeBatch(db);
+    const claimRef = doc(db, 'claims', claimId);
+    batch.update(claimRef, { status });
+
+    if (status === 'approved') {
+      const itemRef = doc(db, 'items', claim.itemId);
+      batch.update(itemRef, { status: 'claimed' });
+
+      await addActivityLog({
+        userId: claim.claimantId,
+        userName: claim.claimantName,
+        action: 'item_claimed',
+        itemId: item.id,
+        itemType: item.itemType,
+        details: `Your claim for ${item.itemType} was approved. (Code: ${claim.claimCode})`,
+      });
+    }
+    
+    await batch.commit();
+
+    await addActivitylog({
+      userId: currentUser.id,
+      userName: currentUser.fullName,
+      action: status === 'approved' ? 'claim_approved' : 'claim_rejected',
+      itemId: item.id,
+      itemType: item.itemType,
+      details: `${status === 'approved' ? 'Approved' : 'Rejected'} claim for ${item.itemType} (Code: ${claim.claimCode})`,
+    });
   };
 
   const logout = () => {
@@ -111,6 +213,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setSelectedItem,
         activityLogs,
         addActivityLog,
+        addClaim,
+        updateClaim,
         logout
       }}
     >

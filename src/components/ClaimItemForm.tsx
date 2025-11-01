@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -9,65 +9,45 @@ import { Alert, AlertDescription } from './ui/alert';
 import { toast } from 'sonner@2.0.3';
 
 export const ClaimItemForm = () => {
-  const { setCurrentPage, selectedItem, claims, setClaims, currentUser, addActivityLog } = useApp();
+  const { setCurrentPage, selectedItem, addClaim } = useApp();
   const [step, setStep] = useState(1);
   const [claimCode, setClaimCode] = useState('');
-  const [answers, setAnswers] = useState<string[]>(['', '', '']);
+  const [answers, setAnswers] = useState<string[]>([]);
 
-  const generateClaimCode = () => {
-    return 'CLM-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-  };
+  useEffect(() => {
+    if (selectedItem) {
+      setAnswers(Array(selectedItem.securityQuestions.length).fill(''));
+    }
+  }, [selectedItem]);
 
-  const handleSubmitAnswers = (e: React.FormEvent) => {
+  const handleSubmitAnswers = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const code = generateClaimCode();
-    const newClaim = {
-      id: Date.now().toString(),
-      itemId: selectedItem?.id || '',
-      claimantId: currentUser?.id || '',
-      claimCode: code,
-      answers: answers.filter(a => a.trim() !== ''),
-      status: 'pending' as const,
-      submittedAt: new Date().toISOString()
-    };
+    if (!selectedItem) return;
 
-    setClaims([...claims, newClaim]);
-    
-    // Add activity log
-    addActivityLog({
-      userId: currentUser?.id || 'unknown',
-      userName: currentUser?.fullName || 'Unknown User',
-      action: 'claim_submitted',
-      itemId: selectedItem?.id,
-      itemType: selectedItem?.itemType,
-      details: `Submitted claim for ${selectedItem?.itemType} (Code: ${code})`
-    });
-    
-    setClaimCode(code);
-    setStep(2);
+    if (answers.some(a => !a.trim())) {
+        toast.error("Please answer all security questions.");
+        return;
+    }
+
+    try {
+      const code = await addClaim({ 
+        itemId: selectedItem.id,
+        answers,
+      });
+      setClaimCode(code);
+      setStep(2);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to submit claim. Please try again.');
+    }
   };
 
   const handleCopyCode = async () => {
     try {
-      // Try using the Clipboard API first
       await navigator.clipboard.writeText(claimCode);
       toast.success('Claim code copied to clipboard!');
     } catch (err) {
-      // Fallback method using a temporary textarea
-      try {
-        const textarea = document.createElement('textarea');
-        textarea.value = claimCode;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        toast.success('Claim code copied to clipboard!');
-      } catch (fallbackErr) {
-        toast.error('Failed to copy. Please copy manually: ' + claimCode);
-      }
+      toast.error('Failed to copy. Please copy manually: ' + claimCode);
     }
   };
 

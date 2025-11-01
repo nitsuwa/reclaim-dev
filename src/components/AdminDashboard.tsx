@@ -15,7 +15,7 @@ import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 
 export const AdminDashboard = () => {
-  const { currentUser, items, claims, activityLogs, addActivityLog } = useApp();
+  const { currentUser, items, claims, activityLogs, addActivityLog, updateClaim } = useApp();
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [selectedClaim, setSelectedClaim] = useState<string | null>(null);
   const [showItemDialog, setShowItemDialog] = useState(false);
@@ -73,21 +73,20 @@ export const AdminDashboard = () => {
   const confirmVerifyClaim = (claimId: string, approve: boolean) => setConfirmAction({ show: true, type: approve ? 'approve-claim' : 'reject-claim', claimId });
 
   const handleVerifyClaim = async (claimId: string, approve: boolean) => {
-    const claim = claims.find(c => c.id === claimId);
-    const item = claim ? items.find(i => i.id === claim.itemId) : null;
-    if (!claim || !item) return toast.error('Could not find claim to update.');
-    const newClaimStatus = approve ? 'approved' : 'rejected';
+    const status = approve ? 'approved' : 'rejected';
     try {
-      await updateDoc(doc(db, 'claims', claimId), { status: newClaimStatus });
-      if (approve) await updateDoc(doc(db, 'items', item.id), { status: 'claimed' });
-      addActivityLog({
-        userId: currentUser?.id || 'admin', userName: currentUser?.fullName || 'Admin', action: approve ? 'claim_approved' : 'claim_rejected',
-        itemId: item.id, itemType: item.itemType, details: `${approve ? 'Approved' : 'Rejected'} claim for ${item.itemType} (Code: ${claim.claimCode})`
-      });
+      await updateClaim(claimId, status);
       toast.success(approve ? 'Claim approved!' : 'Claim rejected');
-    } catch (e) { toast.error('Failed to update claim status.'); } finally {
-      setShowClaimDialog(false); setSelectedClaim(null); setConfirmAction({ show: false, type: null });
-      if (lookupClaim?.id === claimId) { setLookupClaim(null); setClaimCodeInput(''); }
+    } catch (e) {
+      toast.error('Failed to update claim status.');
+    } finally {
+      setShowClaimDialog(false);
+      setSelectedClaim(null);
+      setConfirmAction({ show: false, type: null });
+      if (lookupClaim?.id === claimId) {
+        setLookupClaim(null);
+        setClaimCodeInput('');
+      }
     }
   };
 
@@ -96,8 +95,8 @@ export const AdminDashboard = () => {
   const claimedItems = items.filter(item => item.status === 'claimed');
   const pendingClaims = claims.filter(claim => claim.status === 'pending');
 
-  const getActionLabel = (action: string) => ({ item_reported: 'Item Reported', item_verified: 'Item Verified', item_rejected: 'Item Rejected', claim_submitted: 'Claim Submitted', claim_approved: 'Claim Approved', claim_rejected: 'Claim Rejected' }[action] || action);
-  const getActionBadgeVariant = (action: string) => action.includes('approved') || action.includes('verified') ? 'default' : action.includes('rejected') ? 'destructive' : 'secondary';
+  const getActionLabel = (action: string) => ({ item_reported: 'Item Reported', item_verified: 'Item Verified', item_rejected: 'Item Rejected', claim_submitted: 'Claim Submitted', claim_approved: 'Claim Approved', claim_rejected: 'Claim Rejected', item_claimed: 'Item Claimed' }[action] || action);
+  const getActionBadgeVariant = (action: string) => action.includes('approved') || action.includes('verified') || action.includes('claimed') ? 'default' : action.includes('rejected') ? 'destructive' : 'secondary';
   const togglePhotoBlur = (id: string) => setUnblurredPhotos(p => new Set(p.has(id) ? [...p].filter(i => i !== id) : [...p, id]));
 
   return (
@@ -136,7 +135,7 @@ export const AdminDashboard = () => {
             {lookupClaim && (()=>{ const item = items.find(i => i.id === lookupClaim.itemId); return <div><h4>{item?.itemType}</h4><p>Status: {lookupClaim.status}</p>{lookupClaim.status === 'pending' && <Button onClick={() => { setSelectedClaim(lookupClaim.id); setShowClaimDialog(true); }}>Review</Button>}</div>;})()}
           </CardContent></Card></TabsContent>
           <TabsContent value="logs"><Card><CardHeader><CardTitle>Activity Logs</CardTitle></CardHeader><CardContent>{activityLogs.length === 0 ? <p className="text-center py-8">No activity logs</p> : <ScrollArea className="h-[600px]"><Table><TableHeader><TableRow><TableHead>Timestamp</TableHead><TableHead>User</TableHead><TableHead>Action</TableHead><TableHead>Details</TableHead></TableRow></TableHeader><TableBody>
-            {activityLogs.map(log => <TableRow key={log.id}><TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell><TableCell>{log.userName}</TableCell><TableCell><Badge variant={getActionBadgeVariant(log.action)}>{getActionLabel(log.action)}</Badge></TableCell><TableCell>{log.details}</TableCell></TableRow>)}
+            {activityLogs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(log => <TableRow key={log.id}><TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell><TableCell>{log.userName}</TableCell><TableCell><Badge variant={getActionBadgeVariant(log.action)}>{getActionLabel(log.action)}</Badge></TableCell><TableCell>{log.details}</TableCell></TableRow>)}
           </TableBody></Table></ScrollArea>}</CardContent></Card></TabsContent>
         </Tabs>
       </div>
