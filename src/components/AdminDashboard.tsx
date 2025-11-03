@@ -74,11 +74,40 @@ export const AdminDashboard = () => {
 
   const handleVerifyClaim = async (claimId: string, approve: boolean) => {
     const status = approve ? 'approved' : 'rejected';
+    const claim = claims.find(c => c.id === claimId);
+    const item = claim && items.find(i => i.id === claim.itemId);
+
+    if (!claim || !item) {
+      toast.error("Claim or associated item not found.");
+      return;
+    }
+
     try {
       await updateClaim(claimId, status);
+
+      // Admin-facing log
+      addActivityLog({
+        userId: currentUser!.id,
+        userName: currentUser!.fullName,
+        action: status === 'approved' ? 'claim_approved' : 'claim_rejected',
+        itemId: item.id,
+        itemType: item.itemType,
+        details: `${status === 'approved' ? 'Approved' : 'Rejected'} claim from ${claim.claimantName} for ${item.itemType}`,
+      });
+
+      // User-facing log
+      addActivityLog({
+        userId: claim.claimantId,
+        userName: claim.claimantName,
+        action: status === 'approved' ? 'claim_approved' : 'claim_rejected',
+        itemId: item.id,
+        itemType: item.itemType,
+        details: `Your claim for ${item.itemType} has been ${status}. ${status === 'approved' ? `Your claim code is ${claim.claimCode}.` : ''}`,
+      });
+
       toast.success(approve ? 'Claim approved!' : 'Claim rejected');
     } catch (e) {
-      toast.error('Failed to update claim status.');
+      toast.error((e as Error).message);
     } finally {
       setShowClaimDialog(false);
       setSelectedClaim(null);
@@ -125,8 +154,9 @@ export const AdminDashboard = () => {
             </div></ScrollArea>}</CardContent></Card>
           </TabsContent>
           <TabsContent value="claims"><Card><CardHeader><CardTitle>Pending Claims</CardTitle></CardHeader><CardContent>{pendingClaims.length === 0 ? <p className="text-center py-8">No pending claims</p> : <ScrollArea className="h-[500px]"><div className="space-y-4 pr-4">
-            {pendingClaims.map(claim => { const item = items.find(i => i.id === claim.itemId); return <div key={claim.id} className="border rounded-lg p-4 cursor-pointer" onClick={() => { setSelectedClaim(claim.id); setShowClaimDialog(true); }}>
-              <h4>{item?.itemType}</h4><code>{claim.claimCode}</code><p>Claimant: {claim.claimantName}</p>
+            {pendingClaims.map(claim => { const item = items.find(i => i.id === claim.itemId); return <div key={claim.id} className="border rounded-lg p-4 cursor-pointer flex gap-4" onClick={() => { setSelectedClaim(claim.id); setShowClaimDialog(true); }}>
+            {item && <img src={item.photoUrl} alt={item.itemType} className={`w-24 h-24 object-cover rounded transition-all ${unblurredPhotos.has(item.id) ? '' : 'blur-md'}`} onClick={e => { e.stopPropagation(); togglePhotoBlur(item.id); }} />}
+            <div className="flex-1"><h4>{item?.itemType}</h4><code>{claim.claimCode}</code><p>Claimant: {claim.claimantName}</p></div>
               <Button size="sm" onClick={e => { e.stopPropagation(); setSelectedClaim(claim.id); setShowClaimDialog(true); }}>Review Claim</Button>
             </div>;})}
           </div></ScrollArea>}</CardContent></Card></TabsContent>

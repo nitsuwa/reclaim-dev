@@ -134,6 +134,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       answers: claimData.answers,
       status: 'pending',
       claimCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+      submittedAt: new Date().toISOString()
     };
 
     try {
@@ -155,20 +156,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const updateClaim = async (claimId: string, status: 'approved' | 'rejected') => {
     if (!currentUser || currentUser.role !== 'admin') {
-      toast.error("Unauthorized action.");
-      return;
+      throw new Error("Unauthorized action.");
     }
 
     const claim = claims.find(c => c.id === claimId);
     if (!claim) {
-      toast.error("Claim not found");
-      return;
+      throw new Error("Claim not found");
     }
 
     const item = items.find(i => i.id === claim.itemId);
     if (!item) {
-      toast.error("Associated item not found");
-      return;
+      throw new Error("Associated item not found");
     }
 
     try {
@@ -183,33 +181,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       
       await batch.commit();
 
-      // Admin-facing log
-      const adminLogPromise = addActivityLog({
-        userId: currentUser.id,
-        userName: currentUser.fullName,
-        action: status === 'approved' ? 'claim_approved' : 'claim_rejected',
-        itemId: item.id,
-        itemType: item.itemType,
-        details: `${status === 'approved' ? 'Approved' : 'Rejected'} claim from ${claim.claimantName} for ${item.itemType}`,
-      });
-
-      // User-facing log
-      const userLogPromise = addActivityLog({
-        userId: claim.claimantId,
-        userName: claim.claimantName,
-        action: status === 'approved' ? 'claim_approved' : 'claim_rejected',
-        itemId: item.id,
-        itemType: item.itemType,
-        details: `Your claim for ${item.itemType} has been ${status}. ${status === 'approved' ? `Your claim code is ${claim.claimCode}.` : ''}`,
-      });
-      
-      await Promise.all([adminLogPromise, userLogPromise]);
-
-      toast.success(`Claim has been ${status}.`);
-
     } catch (error) {
       console.error("Failed to update claim status:", error);
-      toast.error("Failed to update claim status. Please try again.");
+      throw new Error("Failed to update claim status. Please try again.");
     }
   };
 

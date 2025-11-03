@@ -20,7 +20,7 @@ export const ReportedClaimedItems = ({ reportedItems, claimedItems }: ReportedCl
   const getStatusBadge = (status: string, type: 'item' | 'claim') => {
     const statusMap = {
       pending: { 
-        label: type === 'item' ? 'Pending Verification' : 'Pending Claim', 
+        label: type === 'item' ? 'Pending Verification' : 'Pending', 
         className: 'bg-muted text-muted-foreground',
         icon: Clock
       },
