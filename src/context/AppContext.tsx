@@ -3,7 +3,7 @@ import { User, LostItem, Claim, ActivityLog } from '../types';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, collection, addDoc, onSnapshot, query, where, writeBatch } from 'firebase/firestore';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface AppContextType {
   currentUser: User | null;
@@ -21,6 +21,7 @@ interface AppContextType {
   addClaim: (claimData: { itemId: string, answers: string[] }) => Promise<string>;
   updateClaim: (claimId: string, status: 'approved' | 'rejected') => Promise<void>;
   logout: () => void;
+  isLoading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -40,6 +41,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<LostItem[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -65,6 +67,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCurrentUser(null);
         setCurrentPage('landing');
       }
+      setIsLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -91,7 +94,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       claimsQuery = query(collection(db, 'claims'), where('claimantId', '==', currentUser.id));
     }
 
-    const unsubscribe = onSnapshot(claimsQuery, 
+    const unsubscribe = onSnapshot(claimsQuery,
       (querySnapshot) => {
         const claimsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Claim));
         setClaims(claimsData);
@@ -191,6 +194,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     auth.signOut();
     setCurrentUser(null);
     setCurrentPage('landing');
+    toast.success('You have been logged out successfully.');
   };
 
   return (
@@ -210,7 +214,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         addActivityLog,
         addClaim,
         updateClaim,
-        logout
+        logout,
+        isLoading
       }}
     >
       {children}

@@ -9,10 +9,11 @@ import { ArrowLeft, Upload, CheckCircle2, CalendarIcon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
-import { format } from 'date-fns@4.1.0';
+import { format } from 'date-fns';
 import { cn } from './ui/utils';
 import { db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { toast } from 'sonner';
 
 export const ReportItemForm = () => {
   const { setCurrentPage, currentUser, addActivityLog } = useApp();
@@ -35,6 +36,11 @@ export const ReportItemForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!currentUser) {
+      toast.error('You must be logged in to report an item.');
+      return;
+    }
     
     const newItem = {
       itemType: formData.itemType,
@@ -48,7 +54,7 @@ export const ReportItemForm = () => {
         formData.securityQuestion2 && { question: formData.securityQuestion2, answer: formData.securityAnswer2 },
         formData.securityQuestion3 && { question: formData.securityQuestion3, answer: formData.securityAnswer3 }
       ].filter(Boolean) as { question: string; answer: string }[],
-      reportedBy: currentUser?.id || 'unknown',
+      reportedBy: currentUser.id,
       status: 'pending' as const,
       reportedAt: new Date().toISOString()
     };
@@ -56,16 +62,17 @@ export const ReportItemForm = () => {
     try {
       const docRef = await addDoc(collection(db, 'items'), newItem);
       await addActivityLog({
-        userId: currentUser?.id || 'unknown',
-        userName: currentUser?.fullName || 'Unknown User',
+        userId: currentUser.id,
+        userName: currentUser.fullName || 'Unknown User',
         action: 'item_reported',
         itemId: docRef.id,
         itemType: newItem.itemType,
         details: `Reported found item: ${newItem.itemType} at ${newItem.location}`
       });
+      toast.success('Item reported successfully and added to the board.');
       setSubmitted(true);
-    } catch (error) {
-      console.error('Error adding document: ', error);
+    } catch (error: any) {
+      toast.error(`Failed to report item: ${error.message || 'Please try again.'}`);
     }
   };
 

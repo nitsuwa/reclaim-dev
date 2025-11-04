@@ -11,9 +11,18 @@ import { ProfilePage } from "./components/ProfilePage";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { Toaster } from "./components/ui/sonner";
+import { Loader2 } from 'lucide-react';
 
 function AppContent() {
-  const { currentPage, currentUser } = useApp();
+  const { currentPage, currentUser, isLoading } = useApp();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const renderPage = () => {
     if (!currentUser) {

@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { useApp } from '../context/AppContext';
 import { ArrowLeft, Upload, CheckCircle2, Copy } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export const ClaimItemForm = () => {
-  const { setCurrentPage, selectedItem, addClaim } = useApp();
+  const { setCurrentPage, selectedItem, addClaim, currentUser } = useApp();
   const [step, setStep] = useState(1);
   const [claimCode, setClaimCode] = useState('');
   const [answers, setAnswers] = useState<string[]>([]);
@@ -24,6 +24,11 @@ export const ClaimItemForm = () => {
     e.preventDefault();
     if (!selectedItem) return;
 
+    if (!currentUser) {
+      toast.error('You must be logged in to claim an item.');
+      return;
+    }
+
     if (answers.some(a => !a.trim())) {
         toast.error("Please answer all security questions.");
         return;
@@ -35,10 +40,10 @@ export const ClaimItemForm = () => {
         answers,
       });
       setClaimCode(code);
+      toast.success('Claim submitted successfully! Your claim code has been generated.');
       setStep(2);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to submit claim. Please try again.');
+    } catch (err: any) {
+      toast.error(`Failed to submit claim: ${err.message || 'Please try again.'}`);
     }
   };
 

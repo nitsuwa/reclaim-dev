@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { useApp } from '../context/AppContext';
 import { ArrowLeft, Eye, EyeOff, AlertCircle, PartyPopper } from 'lucide-react';
 import { PLVLogo } from './PLVLogo';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Alert, AlertDescription } from './ui/alert';
 import { Progress } from './ui/progress';
 import { auth, db } from '../firebase';
@@ -106,17 +106,13 @@ export const RegisterPage = () => {
         role: 'finder' // Default role for new users
       });
 
-      toast.success('Account created successfully!');
+      toast.success('Registration successful! Your account has been created.');
       setStep(2);
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
-        toast.error('Email already in use', {
-          description: 'Please use a different email address.'
-        });
+        toast.error('Registration failed: Email already in use.');
       } else {
-        toast.error('Registration failed', {
-          description: 'An unexpected error occurred. Please try again.'
-        });
+        toast.error(`Registration failed: ${error.message || 'An unexpected error occurred.'}`);
       }
     } finally {
       setIsLoading(false);
@@ -166,7 +162,6 @@ export const RegisterPage = () => {
       <div className="absolute top-0 left-0 w-96 h-96 bg-accent/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
 
-      {/* Back Button - Same style as Login */}
       <Button
         variant="ghost"
         onClick={() => setCurrentPage('landing')}

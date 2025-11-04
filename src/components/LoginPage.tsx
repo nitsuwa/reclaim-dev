@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { useApp } from '../context/AppContext';
 import { Eye, EyeOff, AlertCircle, ArrowLeft } from 'lucide-react';
 import { PLVLogo } from './PLVLogo';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Alert, AlertDescription } from './ui/alert';
 import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -31,7 +31,6 @@ export const LoginPage = () => {
       return;
     }
 
-    // Validate inputs
     if (!username.trim() || !password.trim()) {
       setError('Please fill in all fields');
       return;
@@ -56,9 +55,7 @@ export const LoginPage = () => {
           role: userData.role
         };
 
-        toast.success('Login successful!', {
-          description: `Welcome back, ${appUser.fullName}!`
-        });
+        toast.success(`Login successful! Welcome back, ${appUser.fullName}!`);
 
         setCurrentUser(appUser);
         setCurrentPage(appUser.role === 'admin' ? 'admin' : 'board');
@@ -82,11 +79,9 @@ export const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-[#004d99] to-accent flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Decorative circles */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-accent/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
 
-      {/* Back Button */}
       <Button
         variant="ghost"
         onClick={() => setCurrentPage('landing')}

@@ -4,12 +4,7 @@ import { LogOut, Home, Package, FileText, Shield, User } from 'lucide-react';
 import { PLVLogo } from './PLVLogo';
 
 export const Header = () => {
-  const { currentUser, setCurrentUser, setCurrentPage, currentPage } = useApp();
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setCurrentPage('login');
-  };
+  const { currentUser, setCurrentPage, currentPage, logout } = useApp();
 
   if (!currentUser) return null;
 
@@ -75,7 +70,7 @@ export const Header = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleLogout}
+              onClick={logout}
               className="text-primary-foreground hover:bg-destructive hover:text-white"
             >
               <LogOut className="h-4 w-4 sm:mr-2" />
