@@ -5,7 +5,7 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ScrollArea } from './ui/scroll-area';
 import { useApp } from '../context/AppContext';
-import { Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, Info } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -42,7 +42,7 @@ export const AdminDashboard = () => {
 
   const handleClaimCodeLookup = () => {
     if (!claimCodeInput.trim()) return toast.error('Please enter a claim code');
-    const claim = claims.find(c => c.claimCode === claimCodeInput.trim());
+    const claim = claims.find(c => c.claimCode.toLowerCase() === claimCodeInput.trim().toLowerCase());
     if (claim) {
       setLookupClaim(claim);
       toast.success('Claim found!');
@@ -52,7 +52,7 @@ export const AdminDashboard = () => {
     }
   };
 
-  const confirmVerifyItem = (itemId: string, approve: boolean) => setConfirmAction({ show: true, type: approve ? 'verify-item' : 'reject-item', itemId });
+ const confirmVerifyItem = (itemId: string, approve: boolean) => setConfirmAction({ show: true, type: approve ? 'verify-item' : 'reject-item', itemId });
 
   const handleVerifyItem = async (itemId: string, approve: boolean) => {
     const item = items.find(i => i.id === itemId);
@@ -70,9 +70,10 @@ export const AdminDashboard = () => {
     }
   };
 
+
   const confirmVerifyClaim = (claimId: string, approve: boolean) => setConfirmAction({ show: true, type: approve ? 'approve-claim' : 'reject-claim', claimId });
 
-  const handleVerifyClaim = async (claimId: string, approve: boolean) => {
+ const handleVerifyClaim = async (claimId: string, approve: boolean) => {
     const status = approve ? 'approved' : 'rejected';
     const claim = claims.find(c => c.id === claimId);
     const item = claim && items.find(i => i.id === claim.itemId);
@@ -214,10 +215,98 @@ export const AdminDashboard = () => {
               </CardContent>
             </Card>
           </TabsContent>
-          <TabsContent value="lookup"><Card><CardHeader><CardTitle>Claim Code Lookup</CardTitle></CardHeader><CardContent className="space-y-4">
-            <div className="flex gap-2"><Input placeholder="Enter claim code" value={claimCodeInput} onChange={e => setClaimCodeInput(e.target.value)} /><Button onClick={handleClaimCodeLookup}>Search</Button></div>
-            {lookupClaim && (()=>{ const item = items.find(i => i.id === lookupClaim.itemId); return <div><h4>{item?.itemType}</h4><p>Status: {lookupClaim.status}</p>{lookupClaim.status === 'pending' && <Button onClick={() => { setSelectedClaim(lookupClaim.id); setShowClaimDialog(true); }}>Review</Button>}</div>;})()}
-          </CardContent></Card></TabsContent>
+          <TabsContent value="lookup">
+            <Card>
+              <CardHeader>
+                <CardTitle>Claim Code Lookup</CardTitle>
+                <CardDescription>Enter a claim code to view and process the claim</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="CLM-2025-001"
+                    value={claimCodeInput} 
+                    onChange={e => setClaimCodeInput(e.target.value)} 
+                    className="border rounded-lg p-2 flex-grow"
+                  />
+                  <Button onClick={handleClaimCodeLookup}>Search</Button>
+                </div>
+
+                {lookupClaim && (() => {
+                  const item = items.find(i => i.id === lookupClaim.itemId);
+                  if (!item) return <p>Item details not found for this claim.</p>;
+
+                  const getStatusBadge = (status: string) => {
+                    switch (status) {
+                      case 'pending': return <Badge variant="secondary"><Clock className="mr-1 h-3 w-3" />Pending</Badge>;
+                      case 'approved': return <Badge><CheckCircle2 className="mr-1 h-3 w-3" />Approved</Badge>;
+                      case 'rejected': return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" />Rejected</Badge>;
+                      default: return <Badge variant="outline">{status}</Badge>;
+                    }
+                  };
+
+                  return (
+                    <Card className="border rounded-lg shadow-sm">
+                      <CardHeader>
+                        <div className="flex justify-between items-center">
+                          <CardTitle className="text-lg">Claim Details</CardTitle>
+                          {getStatusBadge(lookupClaim.status)}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="flex items-center justify-between bg-blue-50 p-3 rounded-md border border-blue-200">
+                          <div className="flex items-center">
+                            <Info className="h-5 w-5 text-blue-600 mr-3" />
+                            <span className="text-sm font-mono text-gray-700">Claim Code: {lookupClaim.claimCode}</span>
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => copyToClipboard(lookupClaim.claimCode)}>Copy</Button>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div><p className="text-muted-foreground">Item Type</p><p className="font-semibold text-base">{item.itemType}</p></div>
+                          <div><p className="text-muted-foreground">Location Found</p><p className="font-semibold text-base">{item.location}</p></div>
+                          <div><p className="text-muted-foreground">Date Found</p><p className="font-semibold text-base">{new Date(item.dateFound).toLocaleDateString()}</p></div>
+                          <div><p className="text-muted-foreground">Submitted</p><p className="font-semibold text-base">{new Date(lookupClaim.claimDate).toLocaleDateString()}</p></div>
+                        </div>
+
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground mb-3">Security Questions & Answers</h3>
+                          <div className="space-y-4">
+                            {item.securityQuestions.map((sq, i) => (
+                              <div key={i} className="border p-4 rounded-lg bg-gray-50/70">
+                                <p className="font-semibold text-gray-800 mb-4">Question {i + 1}: {sq.question}</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">Claimant's Answer</p>
+                                    <p className="font-medium text-blue-600">{lookupClaim.answers[i]}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">Correct Answer</p>
+                                    <p className="font-medium text-green-600">{sq.answer}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {lookupClaim.status === 'pending' && (
+                          <div className="flex justify-end gap-2 pt-4 border-t mt-6">
+                            <Button variant="outline" onClick={() => confirmVerifyClaim(lookupClaim.id, false)}>
+                              <XCircle className="mr-2 h-4 w-4" /> Reject Claim
+                            </Button>
+                            <Button onClick={() => confirmVerifyClaim(lookupClaim.id, true)}>
+                              <CheckCircle2 className="mr-2 h-4 w-4" /> Approve & Release
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </TabsContent>
           <TabsContent value="logs"><Card><CardHeader><CardTitle>Activity Logs</CardTitle></CardHeader><CardContent>{activityLogs.length === 0 ? <p className="text-center py-8">No activity logs</p> : <ScrollArea className="h-[600px]"><Table><TableHeader><TableRow><TableHead>Timestamp</TableHead><TableHead>User</TableHead><TableHead>Action</TableHead><TableHead>Details</TableHead></TableRow></TableHeader><TableBody>
             {activityLogs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(log => <TableRow key={log.id}><TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell><TableCell>{log.userName}</TableCell><TableCell><Badge variant={getActionBadgeVariant(log.action)}>{getActionLabel(log.action)}</Badge></TableCell><TableCell>{log.details}</TableCell></TableRow>)}
           </TableBody></Table></ScrollArea>}</CardContent></Card></TabsContent>
