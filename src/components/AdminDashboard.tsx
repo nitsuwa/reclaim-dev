@@ -5,7 +5,7 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ScrollArea } from './ui/scroll-area';
 import { useApp } from '../context/AppContext';
-import { Clock } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -227,10 +227,70 @@ export const AdminDashboard = () => {
         {selectedItem && (()=>{ const item = items.find(i => i.id === selectedItem); return item ? <div className="space-y-4"><img src={item.photoUrl} className={`w-full h-64 object-cover rounded ${unblurredPhotos.has(item.id) ? '' : 'blur-md'}`} onClick={() => togglePhotoBlur(item.id)} /><p><b>Type:</b> {item.itemType}</p><p><b>Location:</b> {item.location}</p><p><b>Description:</b> {item.description}</p><div><b>Questions:</b>{item.securityQuestions.map((sq, i) => <p key={i}>{i+1}: {sq.question}</p>)}</div></div> : null;})()}
         <DialogFooter><Button variant="outline" onClick={() => confirmVerifyItem(selectedItem!, false)}>Reject</Button><Button onClick={() => confirmVerifyItem(selectedItem!, true)}>Approve & Publish</Button></DialogFooter>
       </DialogContent></Dialog>
-      <Dialog open={showClaimDialog} onOpenChange={setShowClaimDialog}><DialogContent><DialogHeader><DialogTitle>Review Claim</DialogTitle></DialogHeader>
-        {selectedClaim && (()=>{ const claim = claims.find(c => c.id === selectedClaim); const item = claim && items.find(i => i.id === claim.itemId); return claim && item ? <div><p><b>Item:</b> {item.itemType}</p><div><b>Answers:</b>{claim.answers.map((ans, i) => <div key={i}><p><b>Q:</b> {item.securityQuestions[i].question}</p><p><b>A:</b> {ans}</p></div>)}</div></div> : null; })()}
-        <DialogFooter><Button variant="outline" onClick={() => confirmVerifyClaim(selectedClaim!, false)}>Reject Claim</Button><Button onClick={() => confirmVerifyClaim(selectedClaim!, true)}>Approve Claim</Button></DialogFooter>
-      </DialogContent></Dialog>
+      
+      <Dialog open={showClaimDialog} onOpenChange={setShowClaimDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Review Claim Request</DialogTitle>
+            <DialogDescription>Verify the claimant's answers and approve or reject the claim</DialogDescription>
+          </DialogHeader>
+          {selectedClaim && (() => {
+            const claim = claims.find(c => c.id === selectedClaim);
+            const item = claim && items.find(i => i.id === claim.itemId);
+            if (!claim || !item) return null;
+
+            return (
+              <div className="space-y-6 pt-4">
+                <div className="flex justify-between items-center bg-blue-50/50 p-3 rounded-lg border border-blue-200">
+                  <span className="text-sm font-medium text-gray-800">Claim Code: <code className="font-mono bg-white p-1 rounded-sm">{claim.claimCode}</code></span>
+                  <Button variant="ghost" size="sm" onClick={() => copyToClipboard(claim.claimCode)}>Copy</Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Item Type</p>
+                    <p className="font-semibold text-lg">{item.itemType}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Location</p>
+                    <p className="font-semibold text-lg">{item.location}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Security Questions & Answers</h3>
+                  <div className="space-y-4">
+                    {item.securityQuestions.map((sq, i) => (
+                      <div key={i} className="border p-4 rounded-lg bg-gray-50/70">
+                        <p className="font-semibold text-gray-800 mb-3">Question {i + 1}: {sq.question}</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Claimant's Answer</p>
+                            <p className="font-medium text-blue-600">{claim.answers[i]}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Correct Answer</p>
+                            <p className="font-medium text-green-600">{sq.answer}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter className="pt-6">
+            <Button variant="outline" onClick={() => confirmVerifyClaim(selectedClaim!, false)}>
+              <XCircle className="mr-2 h-4 w-4" /> Reject Claim
+            </Button>
+            <Button onClick={() => confirmVerifyClaim(selectedClaim!, true)}>
+              <CheckCircle2 className="mr-2 h-4 w-4" /> Approve & Release
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={confirmAction.show} onOpenChange={v => !v && setConfirmAction({show:false,type:null})}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Confirm Action</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => { if(confirmAction.type === 'verify-item') handleVerifyItem(confirmAction.itemId!, true); else if(confirmAction.type === 'reject-item') handleVerifyItem(confirmAction.itemId!, false); else if(confirmAction.type === 'approve-claim') handleVerifyClaim(confirmAction.claimId!, true); else if(confirmAction.type === 'reject-claim') handleVerifyClaim(confirmAction.claimId!, false); }}>Confirm</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   );
