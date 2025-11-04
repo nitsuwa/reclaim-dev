@@ -5,12 +5,12 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ScrollArea } from './ui/scroll-area';
 import { useApp } from '../context/AppContext';
-import { CheckCircle2, XCircle, Clock, Package, FileCheck, AlertCircle, CheckSquare, ScrollText, Eye, EyeOff } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Input } from './ui/input';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 
@@ -85,7 +85,6 @@ export const AdminDashboard = () => {
     try {
       await updateClaim(claimId, status);
 
-      // Admin-facing log
       addActivityLog({
         userId: currentUser!.id,
         userName: currentUser!.fullName,
@@ -95,7 +94,6 @@ export const AdminDashboard = () => {
         details: `${status === 'approved' ? 'Approved' : 'Rejected'} claim from ${claim.claimantName} for ${item.itemType}`,
       });
 
-      // User-facing log
       addActivityLog({
         userId: claim.claimantId,
         userName: claim.claimantName,
@@ -153,13 +151,69 @@ export const AdminDashboard = () => {
               {verifiedItems.map(item => <div key={item.id} className="border rounded-lg p-4 flex gap-4"><img src={item.photoUrl} alt={item.itemType} className="w-24 h-24 object-cover rounded" /><div className="flex-1"><h4>{item.itemType}</h4><p>{item.location}</p></div></div>)}
             </div></ScrollArea>}</CardContent></Card>
           </TabsContent>
-          <TabsContent value="claims"><Card><CardHeader><CardTitle>Pending Claims</CardTitle></CardHeader><CardContent>{pendingClaims.length === 0 ? <p className="text-center py-8">No pending claims</p> : <ScrollArea className="h-[500px]"><div className="space-y-4 pr-4">
-            {pendingClaims.map(claim => { const item = items.find(i => i.id === claim.itemId); return <div key={claim.id} className="border rounded-lg p-4 cursor-pointer flex gap-4" onClick={() => { setSelectedClaim(claim.id); setShowClaimDialog(true); }}>
-            {item && <img src={item.photoUrl} alt={item.itemType} className={`w-24 h-24 object-cover rounded transition-all ${unblurredPhotos.has(item.id) ? '' : 'blur-md'}`} onClick={e => { e.stopPropagation(); togglePhotoBlur(item.id); }} />}
-            <div className="flex-1"><h4>{item?.itemType}</h4><code>{claim.claimCode}</code><p>Claimant: {claim.claimantName}</p></div>
-              <Button size="sm" onClick={e => { e.stopPropagation(); setSelectedClaim(claim.id); setShowClaimDialog(true); }}>Review Claim</Button>
-            </div>;})}
-          </div></ScrollArea>}</CardContent></Card></TabsContent>
+          <TabsContent value="claims">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Claims</CardTitle>
+                <CardDescription>Review and approve claim requests</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {pendingClaims.length === 0 ? (
+                  <p className="text-center py-8">No pending claims</p>
+                ) : (
+                  <ScrollArea className="h-[calc(100vh-400px)]">
+                    <div className="space-y-6 pr-4">
+                      {pendingClaims.map(claim => {
+                        const item = items.find(i => i.id === claim.itemId);
+                        return (
+                          <Card key={claim.id} className="shadow-sm">
+                            <CardHeader>
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <CardTitle className="text-lg">{item?.itemType}</CardTitle>
+                                  <p className="text-sm text-muted-foreground pt-1">
+                                    Claim Code: <code className="font-mono bg-gray-100 p-1 rounded-sm text-xs">{claim.claimCode}</code>
+                                  </p>
+                                </div>
+                                <Badge variant="secondary">
+                                  <Clock className="mr-2 h-4 w-4" />
+                                  Pending
+                                </Badge>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              <div>
+                                <h4 className="text-sm font-medium text-muted-foreground mb-2">Security Answers:</h4>
+                                <div className="space-y-3">
+                                  {claim.answers.map((answer, index) => (
+                                    <div key={index} className="border p-3 rounded-lg bg-gray-50/70">
+                                      <p className="font-semibold text-sm text-gray-700">
+                                        Q{index + 1}: {item?.securityQuestions[index]?.question}
+                                      </p>
+                                      <p className="pt-1">Answer: {answer}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <Button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setSelectedClaim(claim.id);
+                                  setShowClaimDialog(true);
+                                }}
+                              >
+                                Review Claim
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
           <TabsContent value="lookup"><Card><CardHeader><CardTitle>Claim Code Lookup</CardTitle></CardHeader><CardContent className="space-y-4">
             <div className="flex gap-2"><Input placeholder="Enter claim code" value={claimCodeInput} onChange={e => setClaimCodeInput(e.target.value)} /><Button onClick={handleClaimCodeLookup}>Search</Button></div>
             {lookupClaim && (()=>{ const item = items.find(i => i.id === lookupClaim.itemId); return <div><h4>{item?.itemType}</h4><p>Status: {lookupClaim.status}</p>{lookupClaim.status === 'pending' && <Button onClick={() => { setSelectedClaim(lookupClaim.id); setShowClaimDialog(true); }}>Review</Button>}</div>;})()}
