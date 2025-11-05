@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { User, LostItem, Claim, ActivityLog } from '../types';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, collection, addDoc, onSnapshot, query, where, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, onSnapshot, query, where, writeBatch, orderBy } from 'firebase/firestore';
 import { toast } from 'sonner@2.0.3';
 
 interface AppContextType {
@@ -73,13 +73,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, 'items'));
+    if (!currentUser) {
+      setItems([]);
+      return;
+    }
+    const q = query(collection(db, 'items'), orderBy('dateFound', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const itemsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LostItem));
       setItems(itemsData);
+    }, (error) => {
+      console.error("Error fetching items:", error);
+      toast.error("Failed to load item data.");
     });
     return () => unsubscribe();
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -89,7 +96,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     let claimsQuery;
     if (currentUser.role === 'admin') {
-      claimsQuery = query(collection(db, 'claims'));
+      claimsQuery = query(collection(db, 'claims'), orderBy('submittedAt', 'desc'));
     } else {
       claimsQuery = query(collection(db, 'claims'), where('claimantId', '==', currentUser.id));
     }
@@ -97,6 +104,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onSnapshot(claimsQuery, 
       (querySnapshot) => {
         const claimsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Claim));
+        if (currentUser.role !== 'admin') {
+          claimsData.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+        }
         setClaims(claimsData);
       },
       (error) => {
@@ -109,13 +119,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [currentUser]);
 
   useEffect(() => {
-    const q = query(collection(db, 'activity'));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    if (!currentUser) {
+      setActivityLogs([]);
+      return;
+    }
+
+    let activityQuery;
+    if (currentUser.role === 'admin') {
+      activityQuery = query(collection(db, 'activity'), orderBy('timestamp', 'desc'));
+    } else {
+      activityQuery = query(collection(db, 'activity'), where('userId', '==', currentUser.id));
+    }
+
+    const unsubscribe = onSnapshot(activityQuery, (querySnapshot) => {
       const logsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActivityLog));
+      if (currentUser.role !== 'admin') {
+        logsData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      }
       setActivityLogs(logsData);
+    }, (error) => {
+      console.error("Error fetching activity logs:", error);
+      toast.error("Failed to load activity data.");
     });
+
     return () => unsubscribe();
-  }, []);
+  }, [currentUser]);
 
   const addActivityLog = async (log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
     try {
