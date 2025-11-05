@@ -21,6 +21,7 @@ interface AppContextType {
   addClaim: (claimData: { itemId: string, answers: string[] }) => Promise<string>;
   updateClaim: (claimId: string, status: 'approved' | 'rejected') => Promise<void>;
   logout: () => void;
+  loading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -36,6 +37,7 @@ export const useApp = () => {
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState('landing');
+  const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<LostItem | null>(null);
   const [items, setItems] = useState<LostItem[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
@@ -65,6 +67,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCurrentUser(null);
         setCurrentPage('landing');
       }
+      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -189,8 +192,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     auth.signOut();
-    setCurrentUser(null);
-    setCurrentPage('landing');
   };
 
   return (
@@ -210,10 +211,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         addActivityLog,
         addClaim,
         updateClaim,
-        logout
+        logout,
+        loading
       }}
     >
-      {children}
+      {!loading && children}
     </AppContext.Provider>
   );
 };
