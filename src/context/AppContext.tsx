@@ -36,12 +36,19 @@ export const useApp = () => {
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentPage, setCurrentPage] = useState('landing');
+  const [currentPage, setCurrentPage] = useState(() => {
+    const storedPage = localStorage.getItem('currentPage');
+    return storedPage || 'landing';
+  });
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<LostItem | null>(null);
   const [items, setItems] = useState<LostItem[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+
+  useEffect(() => {
+    localStorage.setItem('currentPage', currentPage);
+  }, [currentPage]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -58,7 +65,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             role: userData.role
           };
           setCurrentUser(appUser);
-          setCurrentPage(appUser.role === 'admin' ? 'admin' : 'board');
+          if (currentPage === 'landing' || currentPage === 'login' || currentPage === 'register' || currentPage === 'forgot-password') {
+            setCurrentPage(appUser.role === 'admin' ? 'admin' : 'board');
+          }
         } else {
           setCurrentUser(null);
           setCurrentPage('login');
